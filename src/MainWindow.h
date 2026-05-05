@@ -1,0 +1,360 @@
+#pragma once
+
+#include "core/Lut3D.h"
+#include "model/ColorTypes.h"
+#include "render/ScopeRenderer.h"
+
+#include <QFutureWatcher>
+#include <QMainWindow>
+#include <QPointer>
+#include <QTimer>
+#include <array>
+
+class QLabel;
+class QProgressBar;
+class QResizeEvent;
+class QSlider;
+class QSplitter;
+class QPushButton;
+class QComboBox;
+class QCheckBox;
+class QListWidget;
+class QMenu;
+class QColor;
+class QTableWidget;
+class QLineEdit;
+class QVBoxLayout;
+
+namespace ikclut {
+
+class ImageView;
+class CollapsiblePanel;
+class CurveWidget;
+class ColorWheelControl;
+class ColorWarperWidget;
+class Lut3DViewer;
+class NodeGraphWidget;
+class ParameterControl;
+class ResponsiveTabPanel;
+class ScopeWidget;
+
+class MainWindow : public QMainWindow {
+    Q_OBJECT
+
+public:
+    explicit MainWindow(QWidget* parent = nullptr);
+
+private:
+    struct HistoryState {
+        ImageDocument document;
+        Lut3D importedLut;
+        int activeStageIndex = 0;
+        bool adjustmentsBypassed = false;
+        bool maskOverlayEnabled = true;
+        bool maskViewEnabled = false;
+    };
+
+    void closeEvent(QCloseEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
+
+    QWidget* createBasicPanel();
+    QWidget* createWheelsPanel();
+    QWidget* createCurvesPanel();
+    QWidget* createWarperPanel();
+    QWidget* createHslPanel();
+    QWidget* createNodesPanel();
+    QWidget* createProfessionalPanel();
+    void applyResponsiveLayout();
+    void refreshWarperPointList();
+    void refreshWarperSelectionUi();
+    void setWarperImagePickMode(bool enabled);
+    void tryAddWarperPointFromColor(const QColor& color);
+    void reconcileWarperLuma(const QVector<QPointF>& sources, const QVector<QPointF>& targets);
+    void refreshCurveHandleButtons();
+    void setActiveCurveChannel(int index);
+    void setCurveForChannel(int index, const QVector<QPointF>& curve);
+    void setCurveHandlesForChannel(int index, const QVector<CurveHandleMode>& handles);
+    QVector<QPointF> curveForChannel(int index) const;
+    QVector<CurveHandleMode> curveHandlesForChannel(int index) const;
+    void refreshCurvePointTable();
+    void applyCurvePointTableEdit(int row, int column);
+    void selectCurvePointTableRow(int index);
+    void resetCurveChannel(int index);
+    void resetAllCurves();
+    void resetHslBand(int band);
+    void resetAllHsl();
+    void refreshAdjustmentStackUi();
+    void syncActiveStageParams();
+    void loadActiveStageParams(int index);
+    void addAdjustmentStage();
+    void addNodeGraphStage(const QString& type, const QPointF& position, const QString& insertAfterNodeId);
+    void cloneNodeGraphStage(const NodeGraphNode& sourceNode, const QPointF& position);
+    void removeActiveAdjustmentStage();
+    void duplicateActiveAdjustmentStage();
+    void moveActiveAdjustmentStage(int direction);
+    void clearSoloExcept(int index);
+    QString adjustmentStageLabel(int index) const;
+    QString localMaskIdForStage(int index) const;
+    void ensureLocalMaskAsset();
+    MaskAsset* localMaskForActiveStage();
+    const MaskAsset* localMaskForActiveStage() const;
+    MaskReference activeMaskReference() const;
+    void setLocalMaskKind(MaskKind kind);
+    void setLocalMaskParam(const QString& key, double value);
+    void refreshLocalMaskUi();
+    void refreshMaskOverlay();
+    void setMaskColorPickMode(bool enabled);
+    void setMaskColorPickMode(bool enabled, bool subtractSample);
+    void applyMaskColorSample(const QColor& color);
+    void applyMaskDrag(const QPointF& startUv, const QPointF& endUv);
+    void resetActiveMask();
+    QImage makeMaskPreviewImage(const QSize& size) const;
+    void configureHueVsCurve(CurveWidget* widget,
+                             const QVector<QPointF>& curve,
+                             const QVector<CurveHandleMode>& handles,
+                             const QColor& color);
+    void resetHueVsCurve(int index);
+    void refreshParameterWidgets();
+    HistoryState captureHistoryState() const;
+    void restoreHistoryState(const HistoryState& state);
+    void noteUndoCheckpoint();
+    void finalizeUndoCheckpoint();
+    void resetUndoHistory();
+    void undo();
+    void redo();
+    void refreshUndoRedoActions();
+    void markDirty();
+    void setDirty(bool dirty);
+    bool maybeSaveChanges();
+    void updateWindowTitle();
+    void addRecentProject(const QString& path);
+    void rebuildRecentProjectsMenu();
+    void openProjectPath(const QString& path);
+    void saveProjectPath(const QString& path);
+    QString autosavePath() const;
+    void autosaveNow();
+    void restoreLastSession();
+
+    void openImage();
+    void importLut();
+    void clearImportedLut();
+    void analyzeLutQuality();
+    void exportIkClut();
+    void exportCube();
+    void exportHald();
+    void batchExportImages();
+    void saveProject();
+    void openProject();
+    void savePreset();
+    void loadPreset();
+
+    void schedulePreview();
+    void renderPreview(bool fullQuality);
+    void updatePreviewDisplay();
+    QImage makeSplitComparisonImage(const QImage& after);
+    bool documentHasSpatialMasks() const;
+    void warnIfExportOmitsSpatialMasks();
+    bool showExportQualityReport(const QString& exportFormat, const QString& outputPath);
+    void scheduleScopes(const QImage& image);
+    void refreshLutViewerAsync();
+    void restoreImportedLutFromDocument();
+    void syncTransformSource();
+    void stripLocalMasksFromDocument();
+    void updateIkClutStrip(const Lut3D& lut);
+    void updateBusy(bool busy, const QString& text);
+    void setStatus(const QString& text);
+    void rebuildDefaultStages();
+    void rebuildNodeGraphFromPipeline(const QString& mode);
+    void refreshNodeGraphUi();
+    void refreshNodePropertyUi();
+    ColorGradePipeline pipelineFromNodeGraph() const;
+    void syncNodeGraphFromPipelineStages();
+    void selectStageById(const QString& stageId);
+    void syncStageParams();
+    Lut3D currentLutForExport() const;
+
+    ImageView* m_sourceView = nullptr;
+    ImageView* m_resultView = nullptr;
+    ImageView* m_ikClutStripView = nullptr;
+    ScopeWidget* m_scopeWidget = nullptr;
+    Lut3DViewer* m_lutViewer = nullptr;
+    QLabel* m_statusLabel = nullptr;
+    QProgressBar* m_progress = nullptr;
+    ResponsiveTabPanel* m_tabs = nullptr;
+    QSplitter* m_mainSplitter = nullptr;
+    QSplitter* m_previewSplitter = nullptr;
+    QMenu* m_recentProjectsMenu = nullptr;
+    QAction* m_undoAction = nullptr;
+    QAction* m_redoAction = nullptr;
+    QPushButton* m_curveMasterButton = nullptr;
+    QPushButton* m_curveRedButton = nullptr;
+    QPushButton* m_curveGreenButton = nullptr;
+    QPushButton* m_curveBlueButton = nullptr;
+    QPushButton* m_curveAutoHandleButton = nullptr;
+    QPushButton* m_curveVectorHandleButton = nullptr;
+    CurveWidget* m_curveWidget = nullptr;
+    std::array<CurveWidget*, 3> m_hueVsCurveWidgets = {};
+    QTableWidget* m_curvePointTable = nullptr;
+    QComboBox* m_curveChannel = nullptr;
+    int m_currentCurveChannel = 0;
+    ParameterControl* m_exposureControl = nullptr;
+    QComboBox* m_inputColorSpaceCombo = nullptr;
+    QListWidget* m_adjustmentList = nullptr;
+    QLineEdit* m_adjustmentNameEdit = nullptr;
+    QCheckBox* m_adjustmentEnabledCheck = nullptr;
+    QCheckBox* m_adjustmentSoloCheck = nullptr;
+    ParameterControl* m_adjustmentOpacityControl = nullptr;
+    QComboBox* m_adjustmentBlendModeCombo = nullptr;
+    QPushButton* m_bypassAllButton = nullptr;
+    QComboBox* m_maskTypeCombo = nullptr;
+    QCheckBox* m_maskInvertCheck = nullptr;
+    QCheckBox* m_maskOverlayCheck = nullptr;
+    QCheckBox* m_maskViewCheck = nullptr;
+    QPushButton* m_maskEditButton = nullptr;
+    QPushButton* m_maskPickColorButton = nullptr;
+    QPushButton* m_maskSubtractColorButton = nullptr;
+    QPushButton* m_maskResetButton = nullptr;
+    QPushButton* m_maskUndoStrokeButton = nullptr;
+    QPushButton* m_maskClearSamplesButton = nullptr;
+    QComboBox* m_previewModeCombo = nullptr;
+    QComboBox* m_nodeGraphModeCombo = nullptr;
+    QCheckBox* m_nodeGraphEnabledCheck = nullptr;
+    QLabel* m_nodeGraphDiagnosticLabel = nullptr;
+    NodeGraphWidget* m_nodeGraphWidget = nullptr;
+    QWidget* m_nodePropertyPanel = nullptr;
+    QLabel* m_nodePropertyTitle = nullptr;
+    QVBoxLayout* m_nodePropertyContentLayout = nullptr;
+    QVector<QWidget*> m_nodePropertyDynamicWidgets;
+    QString m_selectedNodeGraphNodeId;
+    QString m_nodePropertyActiveStageId;
+    QString m_nodePropertyActiveType;
+    QComboBox* m_nodeMixBlendCombo = nullptr;
+    QCheckBox* m_nodeMixClampCheck = nullptr;
+    ParameterControl* m_nodeMixFactorControl = nullptr;
+    ParameterControl* m_nodeMixColorRControl = nullptr;
+    ParameterControl* m_nodeMixColorGControl = nullptr;
+    ParameterControl* m_nodeMixColorBControl = nullptr;
+    ParameterControl* m_nodeBrightnessControl = nullptr;
+    ParameterControl* m_nodeContrastControl = nullptr;
+    ParameterControl* m_nodeHueControl = nullptr;
+    ParameterControl* m_nodeSaturationControl = nullptr;
+    ParameterControl* m_nodeValueControl = nullptr;
+    ParameterControl* m_nodeGammaControl = nullptr;
+    ParameterControl* m_nodeCorrectionHueControl = nullptr;
+    ParameterControl* m_nodeCorrectionSaturationControl = nullptr;
+    ParameterControl* m_nodeCorrectionValueControl = nullptr;
+    ParameterControl* m_nodeCorrectionContrastControl = nullptr;
+    ParameterControl* m_nodeCorrectionGammaControl = nullptr;
+    ParameterControl* m_lutStrengthControl = nullptr;
+    QPushButton* m_clearImportedLutButton = nullptr;
+    ParameterControl* m_contrastControl = nullptr;
+    ParameterControl* m_saturationControl = nullptr;
+    ParameterControl* m_vibranceControl = nullptr;
+    ParameterControl* m_temperatureControl = nullptr;
+    ParameterControl* m_tintControl = nullptr;
+    ParameterControl* m_highlightsControl = nullptr;
+    ParameterControl* m_shadowsControl = nullptr;
+    ParameterControl* m_whitesControl = nullptr;
+    ParameterControl* m_blacksControl = nullptr;
+    ParameterControl* m_textureControl = nullptr;
+    ParameterControl* m_clarityControl = nullptr;
+    ParameterControl* m_dehazeControl = nullptr;
+    ParameterControl* m_sharpenControl = nullptr;
+    ParameterControl* m_logShadowControl = nullptr;
+    ParameterControl* m_logDarkControl = nullptr;
+    ParameterControl* m_logLightControl = nullptr;
+    ParameterControl* m_logHighlightControl = nullptr;
+    ParameterControl* m_hdrShadowControl = nullptr;
+    ParameterControl* m_hdrDarkControl = nullptr;
+    ParameterControl* m_hdrLightControl = nullptr;
+    ParameterControl* m_hdrHighlightControl = nullptr;
+    ParameterControl* m_printerRedControl = nullptr;
+    ParameterControl* m_printerGreenControl = nullptr;
+    ParameterControl* m_printerBlueControl = nullptr;
+    ParameterControl* m_skinHueControl = nullptr;
+    ParameterControl* m_skinSaturationControl = nullptr;
+    ParameterControl* m_skinLuminanceControl = nullptr;
+    ParameterControl* m_calibrationRedHueControl = nullptr;
+    ParameterControl* m_calibrationRedSaturationControl = nullptr;
+    ParameterControl* m_calibrationGreenHueControl = nullptr;
+    ParameterControl* m_calibrationGreenSaturationControl = nullptr;
+    ParameterControl* m_calibrationBlueHueControl = nullptr;
+    ParameterControl* m_calibrationBlueSaturationControl = nullptr;
+    ParameterControl* m_softClipLowControl = nullptr;
+    ParameterControl* m_softClipHighControl = nullptr;
+    ParameterControl* m_softClipLowSoftnessControl = nullptr;
+    ParameterControl* m_softClipHighSoftnessControl = nullptr;
+    ParameterControl* m_maskOpacityControl = nullptr;
+    ParameterControl* m_maskParamAControl = nullptr;
+    ParameterControl* m_maskParamBControl = nullptr;
+    ParameterControl* m_maskParamCControl = nullptr;
+    ParameterControl* m_maskParamDControl = nullptr;
+    ParameterControl* m_maskParamEControl = nullptr;
+    QPushButton* m_maskLoadImageButton = nullptr;
+    ParameterControl* m_warperSourceXControl = nullptr;
+    ParameterControl* m_warperSourceYControl = nullptr;
+    ParameterControl* m_warperSourceLumaControl = nullptr;
+    ParameterControl* m_warperTargetXControl = nullptr;
+    ParameterControl* m_warperTargetYControl = nullptr;
+    ParameterControl* m_warperTargetLumaControl = nullptr;
+    QLabel* m_warperSelectionLabel = nullptr;
+    QComboBox* m_warperCoordinateMode = nullptr;
+    QPushButton* m_warperDeleteButton = nullptr;
+    QPushButton* m_warperPinButton = nullptr;
+    QPushButton* m_warperPickImageButton = nullptr;
+    QListWidget* m_warperPointList = nullptr;
+    QVector<QPointF> m_warperSelectedSources;
+    QVector<QPointF> m_warperSelectedTargets;
+    QVector<bool> m_warperSelectedPinned;
+    int m_warperSelectedIndex = -1;
+    bool m_warperImagePickMode = false;
+    ColorWarperWidget* m_colorWarper = nullptr;
+    ColorWheelControl* m_liftWheel = nullptr;
+    ColorWheelControl* m_gammaWheel = nullptr;
+    ColorWheelControl* m_gainWheel = nullptr;
+    ColorWheelControl* m_offsetWheel = nullptr;
+    std::array<ParameterControl*, 12> m_wheelControls = {};
+    std::array<ParameterControl*, 24> m_hslControls = {};
+
+    QImage m_sourceImage;
+    QImage m_previewImage;
+    QImage m_snapshotA;
+    QImage m_snapshotB;
+    QImage m_cachedMaskPreview;
+    QSize m_cachedMaskPreviewSize;
+    QString m_cachedMaskPreviewKey;
+    QImage m_cachedBeforeScaled;
+    QSize m_cachedBeforeScaledSize;
+    ImageDocument m_document;
+    ColorTransformSource m_transformSource;
+    Lut3D m_importedLut;
+    Lut3D m_currentPreviewLut = Lut3D::identity(17);
+    bool m_preferGpuPreview = true;
+    bool m_dirty = false;
+    int m_activeStageIndex = 0;
+    bool m_maskOverlayEnabled = true;
+    bool m_maskViewEnabled = false;
+    bool m_maskEditMode = false;
+    bool m_maskColorPickMode = false;
+    bool m_maskSubtractSample = false;
+    bool m_adjustmentsBypassed = false;
+    QStringList m_recentProjects;
+    QVector<HistoryState> m_undoStack;
+    QVector<HistoryState> m_redoStack;
+    HistoryState m_lastUndoState;
+    bool m_hasUndoBaseline = false;
+    bool m_undoCheckpointPending = false;
+    bool m_restoringHistory = false;
+
+    QTimer m_previewDebounce;
+    QTimer m_fullPreviewDebounce;
+    QTimer m_lutDebounce;
+    QTimer m_autosaveTimer;
+    QTimer m_undoCoalesceTimer;
+    quint64 m_previewGeneration = 0;
+    quint64 m_fullPreviewGeneration = 0;
+    quint64 m_scopeGeneration = 0;
+    quint64 m_lutGeneration = 0;
+};
+
+} // namespace ikclut
